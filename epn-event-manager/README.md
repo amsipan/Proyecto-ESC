@@ -31,6 +31,84 @@ Validacion: `npm test -- --runInBand` y `npm run build`. Las pruebas fijan un
 instante con desplazamiento `-05:00` y comprueban su equivalente UTC, la persistencia
 en las acciones que ya guardaban eventos y la lectura desde historial y filtros.
 
+## Mantenimiento adaptativo: integracion de CRUD web con CORS
+
+Requisito adoptado: permitir que los CRUD web de los estudiantes consuman la API
+desde puertos o dominios diferentes, configurables para cada entorno.
+
+La variable `CORS_ORIGINS` contiene los origenes permitidos separados por comas.
+Cada origen incluye protocolo, host y puerto cuando corresponda, sin rutas ni
+barra final. Por ejemplo, `http://localhost:5173`.
+
+Desde PowerShell, dentro de `epn-event-manager`:
+
+```powershell
+$env:CORS_ORIGINS = "http://localhost:4200,http://localhost:5173"
+npm run start:dev
+```
+
+En un despliegue, se configura la misma variable en el entorno del servidor.
+La aplicacion lee las variables del proceso; no carga archivos `.env`
+automaticamente. Reiniciar la API despues de cambiar la configuracion.
+
+Los origenes configurados reciben permiso CORS para `GET` y `POST` con
+`Content-Type`. El servidor atiende las solicitudes previas `OPTIONS` que hace
+el navegador antes de enviar JSON. Los origenes deben coincidir exactamente;
+no se habilitan comodines. Sin `CORS_ORIGINS`, o si esta vacia, no se conceden
+permisos de acceso entre origenes.
+
+CORS controla el acceso desde el navegador y no sustituye la autenticacion.
+Las llamadas desde otros servidores o herramientas sin cabecera `Origin`
+siguen funcionando. Para un origen no permitido, la respuesta no incluye
+`Access-Control-Allow-Origin`; el navegador aplica esa restriccion.
+
+Este cambio es adaptativo porque permite integrar clientes alojados en nuevos
+origenes sin modificar el codigo por cada CRUD o entorno.
+
+Validacion: `npm test -- --runInBand` y `npm run build`. Las pruebas HTTP verifican
+origenes permitidos y no permitidos, el preflight de JSON, el contrato de
+`POST /events`, las solicitudes sin `Origin` y la configuracion vacia. Usan los
+controladores reales con un servicio de eventos simulado, sin tocar SQLite.
+
+## Mantenimiento adaptativo: ubicacion de SQLite por entorno
+
+Requisito adoptado: ejecutar el mismo backend en entornos que asignan una carpeta
+o volumen distinto para almacenar los datos, sin editar el codigo de conexion.
+
+La variable `DATABASE_PATH` permite seleccionar el archivo SQLite al iniciar la
+aplicacion. Si no esta definida, esta vacia o contiene solo espacios, se conserva
+`db/events.sqlite`. Se mantienen el motor SQLite, las entidades y las cuatro tablas.
+
+Desde PowerShell, dentro de `epn-event-manager`, este ejemplo guarda los datos
+en una carpeta del usuario fuera del repositorio:
+
+```powershell
+$env:DATABASE_PATH = Join-Path $env:LOCALAPPDATA "EpnEventManager/events.sqlite"
+npm run start:dev
+```
+
+En un despliegue se configura `DATABASE_PATH` con la ubicacion del volumen
+persistente. Se admiten rutas absolutas y relativas; las relativas se interpretan
+desde la carpeta donde se ejecuta el proceso. La ubicacion debe permitir escritura.
+TypeORM crea la carpeta y el archivo si no existen. La variable puede utilizarse
+junto con `CORS_ORIGINS` y `PORT`, y requiere reiniciar la API para aplicar cambios.
+La aplicacion lee el entorno del proceso; no carga archivos `.env` automaticamente.
+
+Cambiar la ruta selecciona otra base de datos: no copia ni mueve los eventos
+existentes. Para volver a la ruta predeterminada en PowerShell:
+
+```powershell
+Remove-Item Env:DATABASE_PATH -ErrorAction SilentlyContinue
+```
+
+Este cambio es adaptativo porque ajusta la conexion a las condiciones de
+almacenamiento del entorno de ejecucion, conservando el modelo del taller.
+
+Validacion: `npm test -- --runInBand` y `npm run build`. Las pruebas comprueban el
+valor predeterminado y levantan el modulo real de base de datos en una ruta
+temporal con espacios, verificando las cuatro tablas y la recuperacion de un
+evento despues de cerrar y reabrir la conexion. No utilizan la base incluida.
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
