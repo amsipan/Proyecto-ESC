@@ -1,3 +1,36 @@
+## Mantenimiento adaptativo: fechas para integraciones internacionales
+
+Requisito adoptado para el taller: toda fecha nueva generada por la API usa
+ISO 8601 en UTC, independientemente de la zona horaria o idioma del servidor.
+Ejemplo: `2026-11-26T01:30:00.000Z`.
+
+Antes se utilizaba `toLocaleString()`, cuyo resultado depende del entorno y no
+incluye una zona horaria explicita. Ahora se utiliza `toISOString()` en el registro
+de las cuatro acciones y en `GET /health`.
+
+Se conservan las cuatro tablas y los campos `recorded_at`, `timestamp`, `createdAt`
+y `event_date`. Los endpoints de historial y filtros devuelven las fechas tal como
+estan almacenadas, por lo que los eventos nuevos persistidos exponen el formato UTC.
+El cuerpo de `POST /events` y sus respuestas mantienen su estructura.
+
+Los registros historicos no se convierten automaticamente: sus fechas locales no
+indican la zona ni el formato regional original. Migrarlos requiere conocer esos
+datos para evitar asignarles una hora incorrecta. Los clientes deben admitir el
+formato historico durante la transicion y pueden mostrar los nuevos valores UTC
+en su zona local.
+
+Este cambio se clasifica como adaptativo porque responde a una nueva regla de
+interoperabilidad entre sistemas de distintas zonas horarias. El requisito es una
+propuesta para el taller; debe contrastarse con cualquier regla especifica que
+defina el docente.
+
+El fallo de persistencia de `DELETE` sigue pendiente del mantenimiento correctivo:
+su objeto se construye con fecha UTC, pero el codigo base no lo guarda.
+
+Validacion: `npm test -- --runInBand` y `npm run build`. Las pruebas fijan un
+instante con desplazamiento `-05:00` y comprueban su equivalente UTC, la persistencia
+en las acciones que ya guardaban eventos y la lectura desde historial y filtros.
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>

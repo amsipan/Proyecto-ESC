@@ -23,7 +23,7 @@ export class UpdateEventEntity {
   @Column({ type: 'text', nullable: true })
   payload: string;
 
-  // Inconsistencia intencional: timestamp guardado como texto local, no UTC
+  // Los nuevos registros usan ISO 8601 en UTC; pueden existir fechas locales antiguas.
   @Column({ nullable: true })
   timestamp: string;
 }
